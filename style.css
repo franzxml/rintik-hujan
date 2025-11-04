@@ -1,9 +1,10 @@
 body {
   margin: 0;
   overflow: hidden;
-  background: radial-gradient(circle at center, #001933 0%, #000814 100%);
+  background: #000814;
 }
 
 canvas {
   display: block;
+  background: url('hutan.png') bottom center / cover no-repeat;
 }
