@@ -1,18 +1,15 @@
-// Ambil elemen kanvas
+// CANVAS HUJAN (tidak diubah dari versi sebelumnya)
 const kanvas = document.getElementById('kanvas-hujan');
 const konteks = kanvas.getContext('2d');
 
-// Atur ukuran awal kanvas
 let lebar = window.innerWidth;
 let tinggi = window.innerHeight;
 kanvas.width = lebar;
 kanvas.height = tinggi;
 
-// Data tetesan hujan
 const tetesan = [];
 const jumlahTetes = 250;
 
-// Buat tetesan acak
 for (let i = 0; i < jumlahTetes; i++) {
   tetesan.push({
     x: Math.random() * lebar,
@@ -23,15 +20,11 @@ for (let i = 0; i < jumlahTetes; i++) {
   });
 }
 
-// Gambar hujan
 function gambar() {
   konteks.clearRect(0, 0, lebar, tinggi);
-
-  // Tambahkan kabut tipis agar hujan menyatu dengan latar
   konteks.fillStyle = 'rgba(0, 20, 40, 0.25)';
   konteks.fillRect(0, 0, lebar, tinggi);
 
-  // Gambar tetesan hujan
   konteks.strokeStyle = 'rgba(0,180,255,0.6)';
   for (let i = 0; i < jumlahTetes; i++) {
     let t = tetesan[i];
@@ -41,11 +34,9 @@ function gambar() {
     konteks.lineTo(t.x, t.y + t.panjang);
     konteks.stroke();
   }
-
   gerak();
 }
 
-// Gerakkan tetesan hujan
 function gerak() {
   for (let i = 0; i < jumlahTetes; i++) {
     let t = tetesan[i];
@@ -57,14 +48,12 @@ function gerak() {
   }
 }
 
-// Jalankan animasi
 function loop() {
   gambar();
   requestAnimationFrame(loop);
 }
 loop();
 
-// Resize dinamis
 window.addEventListener('resize', () => {
   lebar = window.innerWidth;
   tinggi = window.innerHeight;
@@ -72,12 +61,92 @@ window.addEventListener('resize', () => {
   kanvas.height = tinggi;
 });
 
-// Putar suara otomatis tanpa interaksi
-const suara = document.getElementById('suara-hujan');
+// AUDIO: pakai Web Audio API untuk unmute terprogram
+const suaraEl = document.getElementById('suara-hujan');
+
+async function setupAudio() {
+  // buat AudioContext dan node gain
+  const AudioContext = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContext) {
+    console.warn('Web Audio API tidak tersedia di browser ini.');
+    return;
+  }
+
+  const audioCtx = new AudioContext();
+  // koneksi MediaElement ke AudioContext
+  let source;
+  try {
+    source = audioCtx.createMediaElementSource(suaraEl);
+  } catch (e) {
+    console.warn('Tidak bisa membuat MediaElementSource. CORS atau format mungkin bermasalah.', e);
+  }
+
+  const gain = audioCtx.createGain();
+  // mulai dengan nol volume di gain. Kita akan meramp ke volume target.
+  gain.gain.value = 0;
+  if (source) source.connect(gain);
+  gain.connect(audioCtx.destination);
+
+  // coba play elemen (muted) agar browser mengizinkan autoplay
+  try {
+    await suaraEl.play();
+  } catch (e) {
+    // pemutaran mungkin diblokir, lanjutkan karena kita akan coba resume AudioContext
+    console.warn('Play awal diblokir:', e);
+  }
+
+  // coba resume audioCtx. Beberapa browser mengizinkan resume jika elemen autoplay (muted) sedang berjalan.
+  try {
+    await audioCtx.resume();
+    // ramp dari 0 ke target dalam 2 detik
+    const targetVolume = 0.25;
+    const now = audioCtx.currentTime;
+    gain.gain.cancelScheduledValues(now);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(targetVolume, now + 2);
+    // jika elemen masih dimuted, angkat muted agar kontrol elemen sinkron
+    try { suaraEl.muted = false; } catch (e) { /* tidak kritikal */ }
+    console.log('AudioContext running. Suara diaktifkan otomatis.');
+    return;
+  } catch (err) {
+    console.warn('AudioContext tidak bisa diresume tanpa interaksi:', err);
+  }
+
+  // fallback: pasang event sekali untuk resume jika browser memang blokir
+  document.body.addEventListener('click', async function resumeOnClick() {
+    try {
+      await audioCtx.resume();
+      const now = audioCtx.currentTime;
+      gain.gain.cancelScheduledValues(now);
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.25, now + 1.5);
+      try { suaraEl.muted = false; } catch (e) {}
+      console.log('AudioContext diresume melalui klik pengguna.');
+    } catch (e) {
+      console.warn('Gagal resume setelah klik:', e);
+    }
+    this.removeEventListener('click', resumeOnClick);
+  }, { once: true });
+
+  // juga pasang fallback timer untuk mencoba lagi setelah 3 detik
+  setTimeout(async () => {
+    if (audioCtx.state !== 'running') {
+      try {
+        await audioCtx.resume();
+        const now = audioCtx.currentTime;
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(0, now);
+        gain.gain.linearRampToValueAtTime(0.25, now + 2);
+        try { suaraEl.muted = false; } catch (e) {}
+        console.log('Percobaan resume otomatis kedua berhasil.');
+      } catch (e) {
+        console.warn('Percobaan resume otomatis kedua gagal. Periksa pengaturan autoplay browser.');
+      }
+    }
+  }, 3000);
+}
+
+// jalankan setup audio saat halaman load
 window.addEventListener('load', () => {
-  suara.play();
-  setTimeout(() => {
-    suara.muted = false;
-    suara.volume = 0.25; // volume lembut
-  }, 2000);
+  setupAudio();
 });

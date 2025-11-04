@@ -1,16 +1,17 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Rintik Hujan</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <canvas id="kanvas-hujan"></canvas>
 
-  <audio id="suara-hujan" autoplay loop muted>
-    <source src="hujan.mp3" type="audio/mpeg">
+  <!-- tetap autoplay + muted agar browser mengizinkan pemutaran awal -->
+  <audio id="suara-hujan" autoplay loop muted crossorigin="anonymous">
+    <source src="hujan.mp3" type="audio/mpeg" />
   </audio>
 
   <script src="script.js"></script>
