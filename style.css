@@ -1,10 +1,51 @@
 body {
   margin: 0;
   overflow: hidden;
-  background: #000814;
+  background: #00050a; /* Sedikit lebih gelap */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
 canvas {
   display: block;
+  /* Tambahkan filter brightness agar background menyatu dengan suasana malam */
   background: url('hutan.png') bottom center / cover no-repeat;
+  filter: brightness(0.7) contrast(1.1); 
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 1;
+}
+
+/* UI Container di atas canvas */
+.ui-container {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 10;
+  text-align: center;
+  color: #fff;
+  pointer-events: none; /* Agar klik tembus ke canvas jika perlu */
+}
+
+#jam {
+  font-size: 6rem;
+  font-weight: 300;
+  letter-spacing: 4px;
+  text-shadow: 0 0 20px rgba(0, 200, 255, 0.6), 0 0 40px rgba(0, 200, 255, 0.3);
+}
+
+#tanggal {
+  font-size: 1.5rem;
+  opacity: 0.8;
+  margin-top: -10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  text-shadow: 0 0 10px rgba(255, 255, 255, 0.2);
+}
+
+/* Responsif untuk layar kecil */
+@media (max-width: 600px) {
+  #jam { font-size: 4rem; }
+  #tanggal { font-size: 1rem; }
 }
