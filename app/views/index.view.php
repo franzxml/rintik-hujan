@@ -13,6 +13,11 @@
         <!-- Content will be added here -->
     </div>
     
+    <audio id="bgMusic" loop>
+        <source src="assets/audio/rain.mp3" type="audio/mpeg">
+        Your browser does not support the audio element.
+    </audio>
+    
     <script src="js/main.js"></script>
 </body>
 </html>
