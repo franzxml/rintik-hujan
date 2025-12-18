@@ -32,14 +32,59 @@ function buatTetesan(acakY = false) {
 }
 
 // --- INTERAKSI USER (BARU) ---
+// Audio petir - menggunakan pool untuk handle spam click
+const suaraPetirTemplate = document.getElementById('suara-petir');
+const activeThunderSounds = []; // Track active sounds
+const maxThunderSounds = 5; // Max simultaneous thunder sounds
+
+function playThunderSound() {
+  if (!suaraPetirTemplate) return;
+
+  // Buat clone dari audio element agar bisa play multiple instances
+  const suaraPetir = suaraPetirTemplate.cloneNode(true);
+  suaraPetir.volume = Math.random() * 0.3 + 0.5; // Volume 0.5 - 0.8
+
+  // Remove dari array setelah selesai play
+  suaraPetir.addEventListener('ended', () => {
+    const index = activeThunderSounds.indexOf(suaraPetir);
+    if (index > -1) {
+      activeThunderSounds.splice(index, 1);
+    }
+  });
+
+  // Tambahkan ke array active sounds
+  activeThunderSounds.push(suaraPetir);
+
+  // Batasi jumlah suara simultan (untuk performa)
+  if (activeThunderSounds.length > maxThunderSounds) {
+    const oldest = activeThunderSounds.shift();
+    if (oldest) {
+      oldest.pause();
+      oldest.currentTime = 0;
+    }
+  }
+
+  // Play audio
+  suaraPetir.play().catch(err => {
+    console.log('Thunder sound play failed:', err.message);
+  });
+}
+
 window.addEventListener('mousedown', (e) => {
+  // Skip jika klik pada start button overlay
+  const overlay = document.getElementById('start-overlay');
+  if (overlay && !overlay.classList.contains('hidden')) {
+    return;
+  }
+
   // 1. Buat sambaran petir ke posisi mouse
   buatPetir(e.clientX, e.clientY);
-  
+
   // 2. Trigger efek kilat layar penuh (lebih terang dari petir acak)
   petirOpacity = 0.8;
-  
-  // 3. (Opsional) Kamu bisa play suara guntur di sini jika punya filenya
+
+  // 3. Play suara petir
+  playThunderSound();
 });
 
 function buatPetir(targetX, targetY) {
@@ -234,34 +279,91 @@ updateJam();
 
 // --- AUDIO (Tetap sama) ---
 const suaraEl = document.getElementById('suara-hujan');
-async function setupAudio() {
-  const AudioContext = window.AudioContext || window.webkitAudioContext;
-  if (!AudioContext) return;
-  const audioCtx = new AudioContext();
-  let source;
-  try { source = audioCtx.createMediaElementSource(suaraEl); } catch (e) {}
-  const gain = audioCtx.createGain();
-  gain.gain.value = 0;
-  if (source) source.connect(gain);
-  gain.connect(audioCtx.destination);
-  try { await suaraEl.play(); } catch (e) {}
-  
-  const fadeIn = () => {
-    gain.gain.cancelScheduledValues(audioCtx.currentTime);
-    gain.gain.setValueAtTime(0, audioCtx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 2);
-    try { suaraEl.muted = false; } catch(e) {}
-  };
+const startOverlay = document.getElementById('start-overlay');
+const startButton = document.getElementById('start-button');
+const AudioContext = window.AudioContext || window.webkitAudioContext;
+let audioCtx, gainNode, isAudioInitialized = false;
+
+async function initializeAudio() {
+  if (!AudioContext || isAudioInitialized) return;
 
   try {
-    await audioCtx.resume();
-    fadeIn();
-  } catch (err) {
-    document.body.addEventListener('click', async function resumeOnce() {
-      await audioCtx.resume();
-      fadeIn();
-      this.removeEventListener('click', resumeOnce);
-    }, { once: true });
+    audioCtx = new AudioContext();
+    const source = audioCtx.createMediaElementSource(suaraEl);
+    gainNode = audioCtx.createGain();
+    gainNode.gain.value = 0;
+    source.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+    isAudioInitialized = true;
+  } catch (e) {
+    console.error('Audio initialization failed:', e);
   }
 }
-window.addEventListener('load', setupAudio);
+
+async function playAudio() {
+  if (!isAudioInitialized) {
+    await initializeAudio();
+  }
+
+  if (!audioCtx || !gainNode) return;
+
+  try {
+    // Resume AudioContext if suspended
+    if (audioCtx.state === 'suspended') {
+      await audioCtx.resume();
+    }
+
+    // Play the audio element
+    await suaraEl.play();
+
+    // Fade in
+    suaraEl.muted = false;
+    gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+    gainNode.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 2);
+
+    console.log('Rain sound playing');
+
+    // Hide start overlay after audio starts
+    if (startOverlay) {
+      startOverlay.classList.add('hidden');
+      // Remove from DOM after transition
+      setTimeout(() => {
+        startOverlay.style.display = 'none';
+      }, 500);
+    }
+  } catch (err) {
+    console.log('Autoplay blocked, waiting for user interaction:', err.message);
+  }
+}
+
+// Handle start button click
+if (startButton) {
+  startButton.addEventListener('click', async () => {
+    await playAudio();
+  });
+}
+
+// Try to play on load (for browsers that allow autoplay)
+window.addEventListener('load', async () => {
+  try {
+    await playAudio();
+  } catch (err) {
+    // Autoplay blocked, keep overlay visible
+    console.log('Autoplay blocked, showing start button');
+  }
+});
+
+// Ensure audio continues playing when page becomes visible
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden && suaraEl.paused) {
+    playAudio();
+  }
+});
+
+// Periodically check if audio is still playing and restart if needed
+setInterval(() => {
+  if (suaraEl.paused && audioCtx && audioCtx.state === 'running') {
+    suaraEl.play().catch(() => {});
+  }
+}, 1000);
